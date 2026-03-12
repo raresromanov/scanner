@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Verificare Flyere QR</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+  :root{--bg:#0A0A0F;--surface:#13131A;--border:#252535;--accent:#00F5A0;--accent2:#00B3FF;--warn:#FF4D6D;--text:#E8E8F0;--muted:#6B6B85;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Space Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+  .logo{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;}
+  .logo span{color:var(--accent);}
+  .stats-bar{display:flex;gap:16px;font-size:11px;color:var(--muted);}
+  .stat-item strong{color:var(--text);font-size:14px;display:block;}
+  .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);}
+  .tab{flex:1;padding:14px;text-align:center;font-size:12px;cursor:pointer;border:none;background:none;color:var(--muted);letter-spacing:1px;text-transform:uppercase;position:relative;}
+  .tab.active{color:var(--accent);}
+  .tab.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);}
+  .panel{display:none;padding:20px;}
+  .panel.active{display:block;}
+  .result-card{border-radius:16px;padding:24px;max-width:480px;margin:0 auto 20px;border:2px solid var(--border);display:none;}
+  .result-card.valid{border-color:var(--accent);background:rgba(0,245,160,0.06);}
+  .result-card.invalid{border-color:var(--warn);background:rgba(255,77,109,0.06);}
+  .result-card.used{border-color:#FF9800;background:rgba(255,152,0,0.06);}
+  .result-icon{font-size:40px;text-align:center;margin-bottom:12px;}
+  .result-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;text-align:center;margin-bottom:8px;}
+  .valid .result-title{color:var(--accent);}
+  .invalid .result-title{color:var(--warn);}
+  .used .result-title{color:#FF9800;}
+  .result-info{font-size:12px;color:var(--muted);text-align:center;line-height:1.8;}
+  .result-info strong{color:var(--text);}
+  .btn-again{display:block;width:100%;padding:14px;border-radius:12px;border:none;background:var(--accent);color:#000;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;margin-top:16px;}
+  .input-group{max-width:480px;margin:0 auto 20px;}
+  .input-label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;display:block;}
+  .code-input{width:100%;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Space Mono',monospace;font-size:16px;outline:none;text-transform:uppercase;}
+  .verify-btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--accent2);color:#000;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;cursor:pointer;margin-top:12px;}
+  .search-input{width:100%;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:'Space Mono',monospace;font-size:13px;outline:none;margin-bottom:16px;}
+  .filter-btns{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .filter-btn{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--muted);font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;}
+  .filter-btn.active{background:var(--accent);border-color:var(--accent);color:#000;}
+  .code-list{display:grid;gap:8px;}
+  .code-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;}
+  .code-item.used{border-left:3px solid #FF9800;}
+  .code-item.unused{border-left:3px solid var(--accent);}
+  .code-name{font-size:14px;font-weight:700;letter-spacing:1px;}
+  .code-meta{font-size:10px;color:var(--muted);margin-top:3px;}
+  .badge{padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;}
+  .badge.unused{background:rgba(0,245,160,0.15);color:var(--accent);}
+  .badge.used{background:rgba(255,152,0,0.15);color:#FF9800;}
+  .progress-bar{background:var(--border);border-radius:4px;height:6px;margin-bottom:20px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:width 0.5s ease;}
+  .reset-btn{display:block;width:100%;max-width:480px;margin:16px auto 0;padding:12px;border-radius:12px;border:1px solid var(--warn);background:transparent;color:var(--warn);font-family:'Space Mono',monospace;font-size:11px;cursor:pointer;}
+
+  /* SCANNER cu input file - metoda nativa iOS */
+  .scanner-area{max-width:480px;margin:0 auto 20px;text-align:center;}
+  .scan-btn{display:block;width:100%;padding:24px;border-radius:16px;border:2px solid var(--accent);background:transparent;color:var(--accent);font-family:'Space Mono',monospace;font-size:16px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}
+  .scan-btn:active{background:rgba(0,245,160,0.1);}
+  .scan-hint{font-size:11px;color:var(--muted);line-height:1.8;margin-top:8px;}
+  #qr-input{display:none;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">QR<span>Scan</span></div>
+  <div class="stats-bar">
+    <div class="stat-item"><strong id="hdr-total">100</strong>Total</div>
+    <div class="stat-item"><strong id="hdr-used">0</strong>Folosite</div>
+    <div class="stat-item"><strong id="hdr-unused">100</strong>Disponibile</div>
+  </div>
+</header>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('scanner',this)">📷 Scanner</button>
+  <button class="tab" onclick="switchTab('manual',this)">⌨️ Manual</button>
+  <button class="tab" onclick="switchTab('list',this)">📋 Listă</button>
+</div>
+
+<!-- SCANNER TAB - foloseste camera nativa iOS -->
+<div id="tab-scanner" class="panel active">
+  <div class="progress-bar"><div class="progress-fill" id="progress" style="width:0%"></div></div>
+  <div class="scanner-area">
+    <div style="font-size:64px;margin-bottom:16px">📷</div>
+    <label class="scan-btn" for="qr-input">📸 Scanează QR</label>
+    <input type="file" id="qr-input" accept="image/*" capture="environment" onchange="handlePhoto(this)">
+    <div class="scan-hint">Apasă butonul — se deschide camera<br>Fotografiază QR-ul de pe flyer<br>Aplicația îl procesează automat</div>
+  </div>
+  <div class="result-card" id="result-card">
+    <div class="result-icon" id="result-icon"></div>
+    <div class="result-title" id="result-title"></div>
+    <div class="result-info" id="result-info"></div>
+    <label class="btn-again" for="qr-input">📸 Scanează alt cod</label>
+  </div>
+  <canvas id="canvas" style="display:none"></canvas>
+</div>
+
+<!-- MANUAL TAB -->
+<div id="tab-manual" class="panel">
+  <div class="input-group">
+    <label class="input-label">Cod Flyer (ex: FLYER-001)</label>
+    <input type="text" class="code-input" id="manual-code" placeholder="FLYER-001" maxlength="20">
+    <label class="input-label" style="margin-top:16px">Token de verificare</label>
+    <input type="text" class="code-input" id="manual-token" placeholder="D1A35FBB1309EC4B" maxlength="20">
+    <button class="verify-btn" onclick="verifyManual()">Verifică Codul</button>
+  </div>
+  <div class="result-card" id="manual-result"></div>
+</div>
+
+<!-- LIST TAB -->
+<div id="tab-list" class="panel">
+  <input type="text" class="search-input" placeholder="Caută cod..." oninput="renderList()" id="search-input">
+  <div class="filter-btns">
+    <button class="filter-btn active" onclick="setFilter('all',this)">Toate (100)</button>
+    <button class="filter-btn" onclick="setFilter('unused',this)" id="btn-unused">Disponibile</button>
+    <button class="filter-btn" onclick="setFilter('used',this)" id="btn-used">Folosite</button>
+  </div>
+  <div class="code-list" id="code-list"></div>
+  <button class="reset-btn" onclick="resetDB()">⚠ Reset toate codurile</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<script>
+const DB_KEY='qr_flyer_db_v2';
+const INITIAL_DATA=[{"id": 1, "code": "FLYER-001", "token": "D1A35FBB1309EC4B", "unique_id": "XU6XIPCLTOM7", "status": "unused", "scanned_at": null}, {"id": 2, "code": "FLYER-002", "token": "172F334B4F640E4D", "unique_id": "SDRQ2UR3OSG7", "status": "unused", "scanned_at": null}, {"id": 3, "code": "FLYER-003", "token": "E86E80CDA5CDE297", "unique_id": "R1GASL4H5Q0P", "status": "unused", "scanned_at": null}, {"id": 4, "code": "FLYER-004", "token": "730A603B0D70B3E9", "unique_id": "01GU5538B7M1", "status": "unused", "scanned_at": null}, {"id": 5, "code": "FLYER-005", "token": "173E6EB567112E50", "unique_id": "7Y3AHAR24IIU", "status": "unused", "scanned_at": null}, {"id": 6, "code": "FLYER-006", "token": "A225566A423C7429", "unique_id": "YJTNG6BT2C4D", "status": "unused", "scanned_at": null}, {"id": 7, "code": "FLYER-007", "token": "83009CD9B3E5B68E", "unique_id": "VMN3WGOTDOM5", "status": "unused", "scanned_at": null}, {"id": 8, "code": "FLYER-008", "token": "C7A1D982937A50DF", "unique_id": "CG5JS7AYFWVO", "status": "unused", "scanned_at": null}, {"id": 9, "code": "FLYER-009", "token": "45024FF3B1126C6F", "unique_id": "P7SBRSEH2YB3", "status": "unused", "scanned_at": null}, {"id": 10, "code": "FLYER-010", "token": "F8DFFCBEF4D67B12", "unique_id": "SXO0NZ5BUH44", "status": "unused", "scanned_at": null}, {"id": 11, "code": "FLYER-011", "token": "308B8ADBAA345494", "unique_id": "P96QMB2AA41E", "status": "unused", "scanned_at": null}, {"id": 12, "code": "FLYER-012", "token": "90CAACC5EE8E4AE1", "unique_id": "MFBG8VC6EK6R", "status": "unused", "scanned_at": null}, {"id": 13, "code": "FLYER-013", "token": "7B3C699840C145EC", "unique_id": "NZRGBALJ3ZKZ", "status": "unused", "scanned_at": null}, {"id": 14, "code": "FLYER-014", "token": "2AB528E6E65896B4", "unique_id": "F7RO6RY4JBRI", "status": "unused", "scanned_at": null}, {"id": 15, "code": "FLYER-015", "token": "15633BD4431767B6", "unique_id": "06ZAYW6X4BHT", "status": "unused", "scanned_at": null}, {"id": 16, "code": "FLYER-016", "token": "368086722B0092BD", "unique_id": "SQOATCVQABD6", "status": "unused", "scanned_at": null}, {"id": 17, "code": "FLYER-017", "token": "40A5FFFB90C5F560", "unique_id": "ID12UR452LK8", "status": "unused", "scanned_at": null}, {"id": 18, "code": "FLYER-018", "token": "A0F2176BAC027711", "unique_id": "YLB9B4L1U6S2", "status": "unused", "scanned_at": null}, {"id": 19, "code": "FLYER-019", "token": "A73D5FDE76A28DB5", "unique_id": "H4U010OIULI7", "status": "unused", "scanned_at": null}, {"id": 20, "code": "FLYER-020", "token": "808CEFE067C6F855", "unique_id": "4EL1SDH0AV17", "status": "unused", "scanned_at": null}, {"id": 21, "code": "FLYER-021", "token": "B974FE75D2D7B53D", "unique_id": "O4R7YC3I8GUF", "status": "unused", "scanned_at": null}, {"id": 22, "code": "FLYER-022", "token": "BDC49BC0421520DA", "unique_id": "IVU86C27KB1J", "status": "unused", "scanned_at": null}, {"id": 23, "code": "FLYER-023", "token": "20DA5305BFF0A0C2", "unique_id": "F3ZAY4B7XDT3", "status": "unused", "scanned_at": null}, {"id": 24, "code": "FLYER-024", "token": "9F571BE2FE3D2C41", "unique_id": "FDNT6AALHZE4", "status": "unused", "scanned_at": null}, {"id": 25, "code": "FLYER-025", "token": "3E9D4A1B21C4DBC8", "unique_id": "4LFE8VSP4010", "status": "unused", "scanned_at": null}, {"id": 26, "code": "FLYER-026", "token": "09F79CB7E956AEBA", "unique_id": "YWBXK95XUJC3", "status": "unused", "scanned_at": null}, {"id": 27, "code": "FLYER-027", "token": "05D0DC230C2D4319", "unique_id": "Z3N88KCD0D3E", "status": "unused", "scanned_at": null}, {"id": 28, "code": "FLYER-028", "token": "FFAE76BC84702395", "unique_id": "O1RADOFYPRTN", "status": "unused", "scanned_at": null}, {"id": 29, "code": "FLYER-029", "token": "7FE81E056024401E", "unique_id": "WXCCD4N3OJZH", "status": "unused", "scanned_at": null}, {"id": 30, "code": "FLYER-030", "token": "3343D8A2B4878675", "unique_id": "Z9RMOLW5043A", "status": "unused", "scanned_at": null}, {"id": 31, "code": "FLYER-031", "token": "DB3AECC0C728DA05", "unique_id": "9BDKRTL9IORE", "status": "unused", "scanned_at": null}, {"id": 32, "code": "FLYER-032", "token": "97E1BA41A8B1376D", "unique_id": "0H61COC7NPZB", "status": "unused", "scanned_at": null}, {"id": 33, "code": "FLYER-033", "token": "5BC1C16891BF4944", "unique_id": "OZYGA6HZA3NS", "status": "unused", "scanned_at": null}, {"id": 34, "code": "FLYER-034", "token": "517012BA544B0DAC", "unique_id": "66EMKAS2TY0S", "status": "unused", "scanned_at": null}, {"id": 35, "code": "FLYER-035", "token": "427871B5E1F5CCEF", "unique_id": "ENV8PRI726AP", "status": "unused", "scanned_at": null}, {"id": 36, "code": "FLYER-036", "token": "8092EB1C31A47260", "unique_id": "J2ZOV7NZS5LA", "status": "unused", "scanned_at": null}, {"id": 37, "code": "FLYER-037", "token": "2794D354CE25D4BB", "unique_id": "P76F9R98LOC9", "status": "unused", "scanned_at": null}, {"id": 38, "code": "FLYER-038", "token": "EE48EEE3D48479F5", "unique_id": "O75EGOFJME98", "status": "unused", "scanned_at": null}, {"id": 39, "code": "FLYER-039", "token": "1179E1CBC3BDC474", "unique_id": "I9JSZ3JWM518", "status": "unused", "scanned_at": null}, {"id": 40, "code": "FLYER-040", "token": "C6D515BFF0596573", "unique_id": "R0WG7T5YSZK6", "status": "unused", "scanned_at": null}, {"id": 41, "code": "FLYER-041", "token": "6C781BC440FD5786", "unique_id": "N7B3DXJFV2FP", "status": "unused", "scanned_at": null}, {"id": 42, "code": "FLYER-042", "token": "7CCA6FACA2C7B863", "unique_id": "GAFD7E2XONB4", "status": "unused", "scanned_at": null}, {"id": 43, "code": "FLYER-043", "token": "734C1D9E0C1C0335", "unique_id": "UT3KBTBW5IPQ", "status": "unused", "scanned_at": null}, {"id": 44, "code": "FLYER-044", "token": "9AA47BC8A78C9252", "unique_id": "HCHLH63WJ1NY", "status": "unused", "scanned_at": null}, {"id": 45, "code": "FLYER-045", "token": "6A368A43F463A66C", "unique_id": "MZCIXSI2N3B7", "status": "unused", "scanned_at": null}, {"id": 46, "code": "FLYER-046", "token": "7C635062206A3CD0", "unique_id": "5O1O6TPNJUHE", "status": "unused", "scanned_at": null}, {"id": 47, "code": "FLYER-047", "token": "CA37CE3992E46A31", "unique_id": "0B08168V2QKM", "status": "unused", "scanned_at": null}, {"id": 48, "code": "FLYER-048", "token": "C56C3111CB8C98A4", "unique_id": "VB80923IHLKJ", "status": "unused", "scanned_at": null}, {"id": 49, "code": "FLYER-049", "token": "794E0AE7A17C8BC6", "unique_id": "WKPJ2ZMUK9VA", "status": "unused", "scanned_at": null}, {"id": 50, "code": "FLYER-050", "token": "AE4EE4A9A6A577AB", "unique_id": "WOGAFJ8GGNAM", "status": "unused", "scanned_at": null}, {"id": 51, "code": "FLYER-051", "token": "F0EBE5577029472D", "unique_id": "PMN77Q24KRJS", "status": "unused", "scanned_at": null}, {"id": 52, "code": "FLYER-052", "token": "5AFD3220073FF73D", "unique_id": "J8U2RWIMUX0R", "status": "unused", "scanned_at": null}, {"id": 53, "code": "FLYER-053", "token": "A3D22CFD220672F2", "unique_id": "0MKBXRTRSPKX", "status": "unused", "scanned_at": null}, {"id": 54, "code": "FLYER-054", "token": "E90B4D8A1807B829", "unique_id": "Q21677LDV675", "status": "unused", "scanned_at": null}, {"id": 55, "code": "FLYER-055", "token": "633D656CA575E97D", "unique_id": "VI55CLWWWLL9", "status": "unused", "scanned_at": null}, {"id": 56, "code": "FLYER-056", "token": "14066A9950317312", "unique_id": "WS9A1PBWHOTO", "status": "unused", "scanned_at": null}, {"id": 57, "code": "FLYER-057", "token": "8F44F2FFE002BC98", "unique_id": "K782M4EEY062", "status": "unused", "scanned_at": null}, {"id": 58, "code": "FLYER-058", "token": "EF6837A9448DCE44", "unique_id": "YJE4OBQI2E8J", "status": "unused", "scanned_at": null}, {"id": 59, "code": "FLYER-059", "token": "802954E10FEB9876", "unique_id": "0Q4PY85MOZOE", "status": "unused", "scanned_at": null}, {"id": 60, "code": "FLYER-060", "token": "D95AAAEFEAA9D0F1", "unique_id": "0X0VAY7GYTTG", "status": "unused", "scanned_at": null}, {"id": 61, "code": "FLYER-061", "token": "FF02EF174161988C", "unique_id": "6L4CV95D6TYO", "status": "unused", "scanned_at": null}, {"id": 62, "code": "FLYER-062", "token": "018968D3971DC22E", "unique_id": "0KFCCSCAC7J9", "status": "unused", "scanned_at": null}, {"id": 63, "code": "FLYER-063", "token": "49CEF6ABEE83D81C", "unique_id": "BVQEZIN4DJ9C", "status": "unused", "scanned_at": null}, {"id": 64, "code": "FLYER-064", "token": "7399826FB1788ED7", "unique_id": "2O8A3FJPVE1V", "status": "unused", "scanned_at": null}, {"id": 65, "code": "FLYER-065", "token": "2565801EF64A2EB3", "unique_id": "OERI3VNKPX40", "status": "unused", "scanned_at": null}, {"id": 66, "code": "FLYER-066", "token": "F53CAA3129536F91", "unique_id": "FNCP7646PWZM", "status": "unused", "scanned_at": null}, {"id": 67, "code": "FLYER-067", "token": "FE01C2D37C10BF26", "unique_id": "XANV9ZLNA7AM", "status": "unused", "scanned_at": null}, {"id": 68, "code": "FLYER-068", "token": "9466C2E01C438A13", "unique_id": "C24FILWWXDEB", "status": "unused", "scanned_at": null}, {"id": 69, "code": "FLYER-069", "token": "0EC6CEC952C8A6BA", "unique_id": "8H8HX4ELRMX6", "status": "unused", "scanned_at": null}, {"id": 70, "code": "FLYER-070", "token": "CF0CC8610CD851D5", "unique_id": "L3KE2P1BE7JJ", "status": "unused", "scanned_at": null}, {"id": 71, "code": "FLYER-071", "token": "1AF099D4B9DDF26C", "unique_id": "773HZ7GH8P1D", "status": "unused", "scanned_at": null}, {"id": 72, "code": "FLYER-072", "token": "30523CC8F89246BC", "unique_id": "7HX501CR3XH6", "status": "unused", "scanned_at": null}, {"id": 73, "code": "FLYER-073", "token": "80ABF10E86DA2B0F", "unique_id": "HV7S99007Q8J", "status": "unused", "scanned_at": null}, {"id": 74, "code": "FLYER-074", "token": "D9009375B9C6539C", "unique_id": "FTEJFIK6ZX4L", "status": "unused", "scanned_at": null}, {"id": 75, "code": "FLYER-075", "token": "A706049BDF5FCFA5", "unique_id": "ZFV3SY0HADHM", "status": "unused", "scanned_at": null}, {"id": 76, "code": "FLYER-076", "token": "D3452F34D6B0EBD9", "unique_id": "7OGSZIOK9WZ3", "status": "unused", "scanned_at": null}, {"id": 77, "code": "FLYER-077", "token": "CDC57739432D6599", "unique_id": "7I3T6UTKBCCI", "status": "unused", "scanned_at": null}, {"id": 78, "code": "FLYER-078", "token": "0610B18F20E320F1", "unique_id": "EZY7L5ZWFRVR", "status": "unused", "scanned_at": null}, {"id": 79, "code": "FLYER-079", "token": "1A1D3F0205D09C0C", "unique_id": "AAXEEBCDE6BR", "status": "unused", "scanned_at": null}, {"id": 80, "code": "FLYER-080", "token": "215034E41FD3B4DB", "unique_id": "J2E49LLRYS9D", "status": "unused", "scanned_at": null}, {"id": 81, "code": "FLYER-081", "token": "6792CCF500019C6F", "unique_id": "T3DG8C3206EV", "status": "unused", "scanned_at": null}, {"id": 82, "code": "FLYER-082", "token": "7882B270CD8459C1", "unique_id": "C5TBQXS71RX2", "status": "unused", "scanned_at": null}, {"id": 83, "code": "FLYER-083", "token": "29B753ACCA71A181", "unique_id": "V0PCOJMDH57Y", "status": "unused", "scanned_at": null}, {"id": 84, "code": "FLYER-084", "token": "7115550FE545C1C9", "unique_id": "I1GCF7QXWD9O", "status": "unused", "scanned_at": null}, {"id": 85, "code": "FLYER-085", "token": "0466A39EAB0A6D6D", "unique_id": "GQ3KY2Z6C426", "status": "unused", "scanned_at": null}, {"id": 86, "code": "FLYER-086", "token": "FC9B5B588B99AF59", "unique_id": "Q5EXF8B9N4M6", "status": "unused", "scanned_at": null}, {"id": 87, "code": "FLYER-087", "token": "CB931802DB41B7DD", "unique_id": "6C4KZ2T27GRZ", "status": "unused", "scanned_at": null}, {"id": 88, "code": "FLYER-088", "token": "0F59C80EFB674707", "unique_id": "1C6SUMFLURMQ", "status": "unused", "scanned_at": null}, {"id": 89, "code": "FLYER-089", "token": "79D4BE7F92EE52EA", "unique_id": "PH34V22O8GA1", "status": "unused", "scanned_at": null}, {"id": 90, "code": "FLYER-090", "token": "5BA4A86A5E1F87F0", "unique_id": "IEABGPQ8JX0G", "status": "unused", "scanned_at": null}, {"id": 91, "code": "FLYER-091", "token": "705D037C4C73D267", "unique_id": "80IYXMELJSQO", "status": "unused", "scanned_at": null}, {"id": 92, "code": "FLYER-092", "token": "9392A1B8AB6B6348", "unique_id": "IJ9VI4P779P3", "status": "unused", "scanned_at": null}, {"id": 93, "code": "FLYER-093", "token": "4E4513D597E653D5", "unique_id": "SKSV3D62M58K", "status": "unused", "scanned_at": null}, {"id": 94, "code": "FLYER-094", "token": "699F56E17D5C0FEA", "unique_id": "IE5OLTISRALA", "status": "unused", "scanned_at": null}, {"id": 95, "code": "FLYER-095", "token": "09CCEAF507B9FF9A", "unique_id": "W8FZIK95ZJ34", "status": "unused", "scanned_at": null}, {"id": 96, "code": "FLYER-096", "token": "E18548FAB402F3B0", "unique_id": "4T34NZZK9BIY", "status": "unused", "scanned_at": null}, {"id": 97, "code": "FLYER-097", "token": "BBA28EBCF66C15DD", "unique_id": "MJ52JMR6KOSG", "status": "unused", "scanned_at": null}, {"id": 98, "code": "FLYER-098", "token": "636B89D25FB378DF", "unique_id": "KTHVB2A8HNV4", "status": "unused", "scanned_at": null}, {"id": 99, "code": "FLYER-099", "token": "E16778C0CF005B95", "unique_id": "WAVEE8PQXWAC", "status": "unused", "scanned_at": null}, {"id": 100, "code": "FLYER-100", "token": "9D466D96CD626176", "unique_id": "9MXL3KNW51KN", "status": "unused", "scanned_at": null}];
+let db=[],currentFilter='all';
+
+function initDB(){
+  localStorage.removeItem('qr_flyer_db');
+  const saved=localStorage.getItem(DB_KEY);
+  db=saved?JSON.parse(saved):JSON.parse(JSON.stringify(INITIAL_DATA));
+  updateStats();
+}
+function saveDB(){localStorage.setItem(DB_KEY,JSON.stringify(db));updateStats();}
+function resetDB(){if(confirm('Reset toate codurile?')){db=JSON.parse(JSON.stringify(INITIAL_DATA));saveDB();renderList();}}
+function updateStats(){
+  const used=db.filter(c=>c.status==='used').length,unused=db.length-used;
+  document.getElementById('hdr-total').textContent=db.length;
+  document.getElementById('hdr-used').textContent=used;
+  document.getElementById('hdr-unused').textContent=unused;
+  document.getElementById('progress').style.width=(used/db.length*100)+'%';
+  document.getElementById('btn-used').textContent='Folosite ('+used+')';
+  document.getElementById('btn-unused').textContent='Disponibile ('+unused+')';
+}
+function switchTab(name,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='list')renderList();
+}
+
+function handlePhoto(input){
+  if(!input.files||!input.files[0])return;
+  const file=input.files[0];
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      const canvas=document.getElementById('canvas');
+      canvas.width=img.width;
+      canvas.height=img.height;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0);
+      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'attemptBoth'});
+      if(code){
+        processQR(code.data);
+      } else {
+        showResultMsg('invalid','❌','Nu s-a citit QR-ul','Încearcă din nou — asigură-te că QR-ul e clar și bine luminat.');
+      }
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+
+function processQR(raw){
+  try{
+    const data=JSON.parse(raw);
+    const entry=db.find(c=>c.id===data.id&&c.token===data.token&&c.code===data.code);
+    showResult(entry,data.code);
+  }catch(e){
+    showResultMsg('invalid','❌','COD INVALID','Codul QR nu este valid pentru acest sistem.');
+  }
+}
+
+function showResult(entry,code){
+  const card=document.getElementById('result-card');
+  card.style.display='block';
+  if(!entry){
+    card.className='result-card invalid';
+    document.getElementById('result-icon').textContent='❌';
+    document.getElementById('result-title').textContent='COD INVALID';
+    document.getElementById('result-info').innerHTML='Codul <strong>'+code+'</strong> nu există în baza de date.';
+    return;
+  }
+  if(entry.status==='used'){
+    card.className='result-card used';
+    document.getElementById('result-icon').textContent='⚠️';
+    document.getElementById('result-title').textContent='DEJA FOLOSIT';
+    document.getElementById('result-info').innerHTML='Scanat la: <strong>'+entry.scanned_at+'</strong>';
+    return;
+  }
+  entry.status='used';entry.scanned_at=new Date().toLocaleString('ro-RO');saveDB();
+  card.className='result-card valid';
+  document.getElementById('result-icon').textContent='✅';
+  document.getElementById('result-title').textContent='COD VALID!';
+  document.getElementById('result-info').innerHTML='Codul <strong>'+entry.code+'</strong> acceptat!<br>'+entry.scanned_at;
+}
+
+function showResultMsg(type,icon,title,info){
+  const card=document.getElementById('result-card');
+  card.style.display='block';
+  card.className='result-card '+type;
+  document.getElementById('result-icon').textContent=icon;
+  document.getElementById('result-title').textContent=title;
+  document.getElementById('result-info').textContent=info;
+}
+
+function verifyManual(){
+  const code=document.getElementById('manual-code').value.trim().toUpperCase();
+  const token=document.getElementById('manual-token').value.trim().toUpperCase();
+  const entry=db.find(c=>c.code===code&&c.token===token);
+  const card=document.getElementById('manual-result');
+  card.style.display='block';
+  if(!entry){card.className='result-card invalid';card.innerHTML='<div class="result-icon">❌</div><div class="result-title">COD INVALID</div><div class="result-info">Cod sau token incorect.</div>';return;}
+  if(entry.status==='used'){card.className='result-card used';card.innerHTML='<div class="result-icon">⚠️</div><div class="result-title">DEJA FOLOSIT</div><div class="result-info">Scanat la: <strong>'+entry.scanned_at+'</strong></div>';return;}
+  entry.status='used';entry.scanned_at=new Date().toLocaleString('ro-RO');saveDB();renderList();
+  card.className='result-card valid';card.innerHTML='<div class="result-icon">✅</div><div class="result-title">COD VALID!</div><div class="result-info">Codul <strong>'+entry.code+'</strong> acceptat!<br>'+entry.scanned_at+'</div>';
+}
+
+function renderList(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const list=document.getElementById('code-list');
+  const items=db.filter(c=>(currentFilter==='all'||c.status===currentFilter)&&c.code.toLowerCase().includes(search));
+  list.innerHTML=items.map(c=>'<div class="code-item '+c.status+'"><div><div class="code-name">'+c.code+'</div><div class="code-meta">'+(c.status==='used'?'📅 '+c.scanned_at:'🔑 '+c.token)+'</div></div><span class="badge '+c.status+'">'+(c.status==='used'?'Folosit':'Disponibil')+'</span></div>').join('');
+}
+function setFilter(f,btn){currentFilter=f;document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderList();}
+initDB();renderList();
+</script>
+</body>
+</html>
